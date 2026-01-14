@@ -17,7 +17,8 @@ class Program
 
         stopwatch.Start();
         var solver = new Solver();
-        var solution = solver.Solve(lines);
+        // var solution = solver.Solve(lines);
+        var solution = solver.Solve2(lines);
         stopwatch.Stop();
 
         Console.WriteLine($"Duration: {stopwatch.ElapsedMilliseconds}ms");
