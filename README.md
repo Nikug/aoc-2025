@@ -1,4 +1,4 @@
-## Advent of code 2026
+## Advent of code 2025
 
 Using C# this year, dotnet version 10.
 
