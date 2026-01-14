@@ -13,7 +13,9 @@ class Program
         var lines = ReadFile(inputFile);
 
         var solver = new Solver();
-        solver.Solve(lines);
+        var solution = solver.Solve(lines);
+
+        Console.WriteLine($"Solution: {solution}");
     }
 
     static private List<string> ReadFile(string fileName)

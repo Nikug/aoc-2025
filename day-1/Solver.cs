@@ -2,8 +2,47 @@ namespace Puzzle;
 
 public class Solver
 {
-    public void Solve(List<string> input)
+    private int knobMinValue = 0;
+    private int knobMaxValue = 99;
+
+    public int Solve(List<string> input)
     {
-        Console.WriteLine("Solver");
+        var knob = 50;
+        var numberOfPointingZero = 0;
+
+        foreach (var rotation in input)
+        {
+            var direction = rotation[0];
+            var steps = int.Parse(rotation.AsSpan(1));
+            var stepsWithoutFullRotations = steps % (knobMaxValue + 1);
+
+            var knobBefore = knob;
+
+            if (direction == 'L')
+            {
+                knob -= stepsWithoutFullRotations;
+                if (knob < knobMinValue)
+                {
+                    knob = knobMaxValue + knob + 1;
+                }
+            }
+            else
+            {
+                knob += stepsWithoutFullRotations;
+                if (knob > knobMaxValue)
+                {
+                    knob -= knobMaxValue + 1;
+                }
+            }
+
+            Console.WriteLine($"Knob: {knobBefore}->{knob}, Step: {rotation}");
+
+            if (knob == 0)
+            {
+                numberOfPointingZero += 1;
+            }
+        }
+
+        return numberOfPointingZero;
     }
 }
