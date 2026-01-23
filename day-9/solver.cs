@@ -58,7 +58,7 @@ public class Solver
             }
         }
 
-        Console.WriteLine($"{corners[indexA]} - {corners[indexB]}");
+        // Console.WriteLine($"{corners[indexA]} - {corners[indexB]}");
         var result = RectangleArea(corners[indexA], corners[indexB]);
 
         return result;
@@ -135,7 +135,7 @@ public class Polygon
         {
             if (node.X > minX && node.X < maxX && node.Y > minY && node.Y < maxY)
             {
-                // Console.WriteLine($"Rectangle {a}-{b} contains poligon node {node}");
+                // Console.WriteLine($"Rectangle {a}-{b} contains polygon node {node}");
                 return false;
             }
         }
@@ -146,7 +146,7 @@ public class Polygon
         {
             if (Intersects(edge))
             {
-                // Console.WriteLine($"Rectangle {a}-{b} intersects edge {edge}");
+                // Console.WriteLine($"Rectangle {a}-{b} intersects with edge {edge}");
                 return false;
             }
         }
@@ -172,8 +172,48 @@ public class Polygon
 
     private bool IsPointInside(Vector2 point)
     {
-        // Polygon nodes are are always inside
+        // Polygon nodes are always inside
         if (nodes.Contains(point)) return true;
+
+        // Edge nodes are always inside
+        var containedInEdge = false;
+        foreach (var verticalEdge in verticalEdges)
+        {
+            if (point.X == verticalEdge.Start.X)
+            {
+                var minY = Math.Min(verticalEdge.Start.Y, verticalEdge.End.Y);
+                var maxY = Math.Max(verticalEdge.Start.Y, verticalEdge.End.Y);
+                if (point.Y >= minY && point.Y <= maxY)
+                {
+                    containedInEdge = true;
+                    break;
+                }
+            }
+        }
+
+        if (containedInEdge)
+        {
+            return true;
+        }
+
+        foreach (var horizontalEdge in horizontalEdges)
+        {
+            if (point.Y == horizontalEdge.Start.Y)
+            {
+                var minX = Math.Min(horizontalEdge.Start.X, horizontalEdge.End.X);
+                var maxX = Math.Max(horizontalEdge.Start.X, horizontalEdge.End.X);
+                if (point.X >= minX && point.X <= maxX)
+                {
+                    containedInEdge = true;
+                    break;
+                }
+            }
+        }
+
+        if (containedInEdge)
+        {
+            return true;
+        }
 
         // Raycast to see if point is inside
         long raycastLength = 1_000_000;
@@ -186,9 +226,10 @@ public class Polygon
 
         foreach (var e2 in verticalEdges)
         {
-            var e2x = e2.Start.X;
             var e2miny = Math.Min(e2.Start.Y, e2.End.Y);
             var e2maxy = Math.Max(e2.Start.Y, e2.End.Y);
+            var e2x = e2.Start.X;
+
             if (e1minx <= e2x && e2x <= e1maxx && e2miny <= e1y && e1y <= e2maxy)
             {
                 intersects += 1;
@@ -216,9 +257,10 @@ public class Polygon
 
             foreach (var e2 in verticalEdges)
             {
-                var e2x = e2.Start.X;
                 var e2miny = Math.Min(e2.Start.Y, e2.End.Y);
                 var e2maxy = Math.Max(e2.Start.Y, e2.End.Y);
+                var e2x = e2.Start.X;
+
                 if (e1minx < e2x && e2x < e1maxx && e2miny < e1y && e1y < e2maxy)
                 {
                     return true;
@@ -249,11 +291,12 @@ public class Polygon
 
     private List<Edge> GetEdges(Vector2 a, Vector2 b)
     {
-        List<Edge> result = [];
-        result.Add(new Edge(a, new Vector2(a.X, b.Y)));
-        result.Add(new Edge(a, new Vector2(b.X, a.Y)));
-        result.Add(new Edge(b, new Vector2(b.X, a.Y)));
-        result.Add(new Edge(b, new Vector2(a.X, b.Y)));
+        List<Edge> result = [
+            new Edge(a, new Vector2(a.X, b.Y)),
+            new Edge(a, new Vector2(b.X, a.Y)),
+            new Edge(b, new Vector2(b.X, a.Y)),
+            new Edge(b, new Vector2(a.X, b.Y))
+        ];
 
         return result;
     }
