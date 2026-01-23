@@ -47,6 +47,17 @@ public class Solver
         var rounds = 0;
         foreach (var machine in machines)
         {
+
+
+            // The machines need to get smaller
+            // For each joltage index get only buttons where the joltage index is first
+            // For each button
+            // - Press it 1->max times and remove the button
+            // If first joltage is not solved
+            // - For each remaining button
+            //   - Press it 1->max times and remove the button
+            // Once first joltage is solved, move to next joltage with the remaining buttons
+
             rounds++;
             Console.WriteLine($"machine {rounds} / {machines.Count}");
 
