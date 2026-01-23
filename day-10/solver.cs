@@ -13,7 +13,7 @@ public class Solver
             Queue<Machine> queue = [];
             queue.Enqueue(machine);
 
-            while (queue.Peek() is not null)
+            while (queue.Count > 0)
             {
                 var next = queue.Dequeue();
                 if (next.IsCorrect())
@@ -32,6 +32,58 @@ public class Solver
                     }
                 }
             }
+        }
+
+        long result = results.Sum(machine => machine.ButtonPresses);
+
+        return result;
+    }
+
+    public long Solve2(List<string> input)
+    {
+        var machines = Parse(input);
+
+        List<Machine> results = [];
+        var i = 0;
+        foreach (var machine in machines)
+        {
+            i++;
+            Console.WriteLine($"machine {i} / {machines.Count}");
+            HashSet<string> seen = [machine.JoltagesHash()];
+            Queue<Machine> queue = new();
+            queue.Enqueue(machine);
+
+            bool foundResult = false;
+            while (queue.Count > 0)
+            {
+                var next = queue.Dequeue();
+
+                // Console.WriteLine(next.MachineJoltageString());
+
+                if (next.IsCorrectJoltage())
+                {
+                    results.Add(next);
+                    foundResult = true;
+                    break;
+                }
+
+                foreach (var button in next.Buttons)
+                {
+                    var newMachine = next.PressButtonJoltage(button);
+
+                    if (!seen.Contains(newMachine.JoltagesHash()))
+                    {
+                        seen.Add(newMachine.JoltagesHash());
+
+                        if (!newMachine.IsOverJoltage())
+                        {
+                            queue.Enqueue(newMachine);
+                        }
+                    }
+                }
+            }
+
+            Console.WriteLine($"Found result: {foundResult}");
         }
 
         long result = results.Sum(machine => machine.ButtonPresses);
@@ -72,9 +124,10 @@ public class Solver
                 {
                     var joltages = part.Substring(1, part.Length - 2).Split(",");
                     machine.Joltages = new long[joltages.Length];
+                    machine.JoltagesTarget = new long[joltages.Length];
                     for (var i = 0; i < joltages.Length; i++)
                     {
-                        machine.Joltages[i] = long.Parse(joltages[i]);
+                        machine.JoltagesTarget[i] = long.Parse(joltages[i]);
                     }
                 }
                 else
@@ -82,6 +135,7 @@ public class Solver
                     throw new Exception($"Parsing failed for part {part}");
                 }
             }
+            machine.Buttons.Sort((a, b) => b.Length - a.Length);
             machines.Add(machine);
         }
 
@@ -96,11 +150,21 @@ public record Machine
     public List<long[]> Buttons = [];
     public long ButtonPresses = 0;
     public long[] Joltages = [];
+    public long[] JoltagesTarget = [];
 
     public Machine PressButton(long[] button)
     {
         var newLights = Lights.Select((light, index) => button.Contains(index) ? !light : light);
         return this with { Lights = newLights.ToArray(), ButtonPresses = ButtonPresses + 1 };
+    }
+
+    public Machine PressButtonJoltage(long[] button)
+    {
+        var differenceArray = JoltagesTarget.Select((target, index) => target - Joltages[index]);
+        var maxNumberOfPresses = differenceArray.Where((_, index) => button.Contains(index)).Min();
+        maxNumberOfPresses = maxNumberOfPresses <= 0 ? 1 : maxNumberOfPresses;
+        var newJoltages = Joltages.Select((joltage, index) => button.Contains(index) ? joltage + maxNumberOfPresses : joltage);
+        return this with { Joltages = newJoltages.ToArray(), ButtonPresses = ButtonPresses + maxNumberOfPresses };
     }
 
     public bool IsCorrect()
@@ -116,14 +180,59 @@ public record Machine
         return true;
     }
 
-    public string LightsHash() => string.Join("", Lights.Select(light => light ? "#" : "."));
+    public bool IsCorrectJoltage()
+    {
+        for (var i = 0; i < Joltages.Length; i++)
+        {
+            if (Joltages[i] != JoltagesTarget[i])
+            {
+                return false;
+            }
+        }
 
-    public override string ToString()
+        return true;
+    }
+
+    public bool IsOverJoltage()
+    {
+        for (var i = 0; i < Joltages.Length; i++)
+        {
+            if (Joltages[i] > JoltagesTarget[i])
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public double DistanceFromSolution()
+    {
+        double sum = 0;
+        for (var i = 0; i < Joltages.Length; i++)
+        {
+            sum += (JoltagesTarget[i] - Joltages[i]) / JoltagesTarget[i];
+        }
+
+        return sum;
+    }
+
+    public string LightsHash() => string.Join("", Lights.Select(light => light ? "#" : "."));
+    public string JoltagesHash() => string.Join(",", Joltages);
+
+    public string MachineLightString()
     {
         var lights = string.Join("", this.Lights.Select(light => light ? "#" : "."));
         var lightsTarget = string.Join("", this.LightsTarget.Select(light => light ? "#" : "."));
         var buttons = string.Join(" ", this.Buttons.Select(button => $"({string.Join(",", button)})"));
-        var joltages = string.Join(",", this.Joltages);
-        return $"Target: {lightsTarget}, Actual: {lights}, Buttons: {buttons}, Joltages: {joltages}";
+        return $"Target: {lightsTarget}, Actual: {lights}, Buttons: {buttons}";
+    }
+
+    public string MachineJoltageString()
+    {
+        var joltages = string.Join(",", Joltages);
+        var joltagesTarget = string.Join(",", JoltagesTarget);
+        var buttons = string.Join(" ", this.Buttons.Select(button => $"({string.Join(",", button)})"));
+        return $"Target: {joltagesTarget} Actual: {joltages} Buttons: {buttons}";
     }
 }
