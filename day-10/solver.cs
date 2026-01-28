@@ -44,79 +44,99 @@ public class Solver
         var machines = Parse(input);
 
         List<Machine> results = [];
-        var rounds = 0;
         foreach (var machine in machines)
         {
-
-
-            // The machines need to get smaller
-            // For each joltage index get only buttons where the joltage index is first
-            // For each button
-            // - Press it 1->max times and remove the button
-            // If first joltage is not solved
-            // - For each remaining button
-            //   - Press it 1->max times and remove the button
-            // Once first joltage is solved, move to next joltage with the remaining buttons
-
-            rounds++;
-            Console.WriteLine($"machine {rounds} / {machines.Count}");
-
-            Dictionary<long, List<long[]>> buttonsByJoltageIndex = [];
-            for (var i = 0; i < machine.Joltages.Length; i++)
+            // Sort by first index, then by size
+            machine.Buttons.Sort((a, b) =>
             {
-                var buttons = machine.Buttons.Where(button => button.Contains(i)).ToList();
-                buttons.Sort((a, b) => b.Length - a.Length); // Largest first
-                buttonsByJoltageIndex.Add(i, buttons);
-            }
-
-            HashSet<string> seen = [machine.JoltagesHash()];
-            Queue<Machine> queue = new();
-            queue.Enqueue(machine);
-
-            while (queue.Count > 0)
-            {
-                var next = queue.Dequeue();
-
-                // Console.WriteLine(next.MachineJoltageString());
-
-                if (next.IsOverJoltage())
+                if (a[0] < b[0]) return -1;
+                if (a[0] > b[0]) return 1;
+                if (a[0] == b[0])
                 {
+                    if (a.Length > b.Length) return -1;
+                    if (a.Length < b.Length) return 1;
+                }
+                return 0;
+            });
+
+            Stack<Machine> stack = [];
+            stack.Push(machine);
+            while (stack.Count > 0)
+            {
+                var currentMachine = stack.Pop();
+                var target = currentMachine.JoltagesTarget[currentMachine.Index];
+                var current = currentMachine.Joltages[currentMachine.Index];
+                var buttons = currentMachine.Buttons.Where(button => button.Any(index => index == currentMachine.Index));
+                var remainingButtons = buttons.Count();
+                var button = buttons.FirstOrDefault();
+                var isFinalIndex = currentMachine.Index == currentMachine.JoltagesTarget.Length - 1;
+
+                if (button is null)
+                {
+                    if (!isFinalIndex && current == target)
+                    {
+                        stack.Push(currentMachine with { Index = currentMachine.Index + 1 });
+                    }
+
                     continue;
                 }
 
-                if (next.IsCorrectJoltage())
-                {
-                    results.Add(next);
-                    break;
-                }
+                // Console.WriteLine($"Current: {string.Join(",", currentMachine.Joltages)}, target: {string.Join(",", currentMachine.JoltagesTarget)}");
+                // Console.WriteLine($"Buttons {string.Join(" ", currentMachine.Buttons.Select(b => string.Join(",", b)))}");
+                // Console.WriteLine($"Target {target}, current {current}");
 
-                var joltageIndex = next.FirstIncorrectJoltage();
-                var joltageDifference = next.JoltagesTarget[joltageIndex] - next.Joltages[joltageIndex];
-                for (var i = 1; i <= joltageDifference; i++)
+                for (var i = 0; i <= target; i++)
                 {
-                    var buttons = buttonsByJoltageIndex[joltageIndex];
-                    foreach (var button in buttons)
+                    if (remainingButtons == 1 && i + current != target)
                     {
-                        var max = next.MaxNumberOfPresses(button);
-                        if (i > max)
-                        {
-                            goto leave;
-                        }
-
-                        var newMachine = next.PressButtonJoltage(button, i);
-                        if (seen.Contains(newMachine.JoltagesHash()))
-                        {
-                            continue;
-                        }
-                        seen.Add(newMachine.JoltagesHash());
-                        queue.Enqueue(newMachine);
+                        continue;
                     }
-                }
-            leave:;
-            }
-        }
 
-        Console.WriteLine($"Found solution for {results.Count}/{machines.Count}");
+                    var newMachine = currentMachine.PressButtonJoltage(button, i);
+                    if (newMachine.IsOverJoltage()) break;
+
+                    var newCurrent = newMachine.Joltages[newMachine.Index];
+                    var newTarget = newMachine.JoltagesTarget[newMachine.Index];
+
+                    // Console.WriteLine($"Status {newTarget}={newCurrent} {newMachine.Index} {newMachine.MachineJoltageString()}");
+
+                    if (newCurrent == newTarget)
+                    {
+                        if (newMachine.IsCorrectJoltage())
+                        {
+                            Console.WriteLine("Found solution!");
+                            results.Add(newMachine);
+                            goto gotoNextmachine;
+                        }
+                        else if (!isFinalIndex)
+                        {
+                            // Buttons for next joltage
+                            if (newMachine.Buttons.Count > 0)
+                            {
+                                // Remove all buttons affecting current index, increase index
+                                newMachine.Buttons = newMachine.Buttons
+                                    .Where(button => button.All(index => index != newMachine.Index))
+                                    .ToList();
+                                newMachine.Index += 1;
+                                stack.Push(newMachine);
+                            }
+                        }
+                    }
+                    else
+                    {
+                        // Buttons for this joltage index
+                        if (buttons.Count() > 0)
+                        {
+                            // Remove this button, use the next for this same index
+                            newMachine.Buttons = newMachine.Buttons.Where(b => b != button).ToList();
+                            stack.Push(newMachine);
+                        }
+                    }
+
+                }
+            }
+        gotoNextmachine:;
+        }
 
         long result = results.Sum(machine => machine.ButtonPresses);
 
@@ -183,6 +203,7 @@ public record Machine
     public long ButtonPresses = 0;
     public long[] Joltages = [];
     public long[] JoltagesTarget = [];
+    public long Index = 0;
 
     public Machine PressButton(long[] button)
     {
