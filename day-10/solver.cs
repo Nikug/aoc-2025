@@ -42,6 +42,97 @@ public class Solver
     public long Solve2(List<string> input)
     {
         var machines = Parse(input);
+        long sum = 0;
+
+        foreach (var machine in machines)
+        {
+            Dictionary<string, long> cache = [];
+            machine.Joltages = machine.JoltagesTarget.ToArray();
+            var result = HalveAndRecurse(machine, cache);
+            sum += result;
+            // Console.WriteLine($"Result: {result}");
+        }
+
+        return sum;
+    }
+
+    public long HalveAndRecurse(Machine machine, Dictionary<string, long> cache)
+    {
+        if (machine.Joltages.All(joltage => joltage == 0))
+        {
+            // Console.WriteLine($"Solution found!");
+            return 0;
+        }
+
+        var hash = machine.JoltagesHash();
+        if (cache.ContainsKey(hash))
+        {
+            return cache[hash];
+        }
+
+        long bestResult = 1000000;
+        var combinations = CombinationsMatchingEvenOdd(machine);
+        foreach (var combination in combinations)
+        {
+            var newButtonPresses = combination.ButtonPresses.Count;
+            var reducedVoltage = machine.ReduceJoltage(combination.ButtonPresses);
+
+            if (reducedVoltage.Joltages.Any(joltage => joltage < 0))
+            {
+                continue;
+            }
+
+
+            var newMachine = reducedVoltage.HalveJoltage();
+            var result = HalveAndRecurse(newMachine, cache) * 2 + newButtonPresses;
+            bestResult = Math.Min(bestResult, result);
+        }
+
+        if (!cache.ContainsKey(hash))
+        {
+            cache[hash] = bestResult;
+        }
+
+        return bestResult;
+    }
+
+    public List<MiniMachine> CombinationsMatchingEvenOdd(Machine machine)
+    {
+        List<MiniMachine> results = [];
+        var evenOdd = machine.GetEvenOdd();
+        var miniMachine = new MiniMachine
+        {
+            Buttons = new List<long[]>(machine.Buttons)
+        };
+        miniMachine.Init(evenOdd);
+
+        Queue<MiniMachine> queue = [];
+        queue.Enqueue(miniMachine);
+
+        while (queue.Count > 0)
+        {
+            var next = queue.Dequeue();
+            var isCorrect = Enumerable.SequenceEqual(next.Target, next.Current);
+            if (isCorrect)
+            {
+                results.Add(next);
+            }
+
+            if (next.ButtonIndexes.Count > 0)
+            {
+                queue.Enqueue(next.PressNextButton());
+                queue.Enqueue(next.SkipNextButton());
+            }
+        }
+
+        return results;
+    }
+
+
+    // Should work but is too slow to finish
+    public long Solve2ButDoesntFinish(List<string> input)
+    {
+        var machines = Parse(input);
 
         var round = 0;
         List<Machine> results = [];
@@ -116,7 +207,7 @@ public class Solver
                     {
                         if (newMachine.IsCorrectJoltage())
                         {
-                            Console.WriteLine("Found solution!");
+                            Console.WriteLine($"Found solution! {newMachine.ButtonPresses}");
                             results.Add(newMachine);
                             goto gotoNextmachine;
                         }
@@ -207,6 +298,40 @@ public class Solver
     }
 }
 
+public record MiniMachine
+{
+    public bool[] Target = [];
+    public bool[] Current = [];
+    public List<long[]> Buttons = [];
+    public List<int> ButtonIndexes = [];
+    public List<int> ButtonPresses = [];
+
+    public void Init(List<bool> target)
+    {
+        Target = target.ToArray();
+        Current = target.Select(_ => true).ToArray();
+        ButtonIndexes = Buttons.Select((_, i) => i).ToList();
+    }
+
+    public MiniMachine PressNextButton()
+    {
+        var buttonIndex = ButtonIndexes[0];
+        var newButtonPresses = new List<int>(ButtonPresses);
+        newButtonPresses.Add(buttonIndex);
+
+        var button = Buttons[buttonIndex];
+        var newCurrent = Current.Select((value, index) => button.Contains(index) ? !value : value).ToArray();
+        var newButtonIndexes = ButtonIndexes.Slice(1, ButtonIndexes.Count - 1);
+        return this with { Current = newCurrent, ButtonIndexes = newButtonIndexes, ButtonPresses = newButtonPresses };
+    }
+
+    public MiniMachine SkipNextButton()
+    {
+        var newButtonIndexes = ButtonIndexes.Slice(1, ButtonIndexes.Count - 1);
+        return this with { ButtonIndexes = newButtonIndexes };
+    }
+}
+
 public record Machine
 {
     public bool[] Lights = [];
@@ -228,6 +353,27 @@ public record Machine
     {
         var newJoltages = Joltages.Select((joltage, index) => button.Contains(index) ? joltage + times : joltage);
         return this with { Joltages = newJoltages.ToArray(), ButtonPresses = ButtonPresses + times };
+    }
+
+    public Machine ReduceJoltage(List<int> buttonIndexes)
+    {
+        var newJoltages = Joltages.ToArray();
+        foreach (var buttonIndex in buttonIndexes)
+        {
+            var button = Buttons[buttonIndex];
+            foreach (var index in button)
+            {
+                newJoltages[index] -= 1;
+            }
+        }
+
+        return this with { Joltages = newJoltages };
+    }
+
+    public Machine HalveJoltage()
+    {
+        var newJoltages = Joltages.Select(joltage => joltage / 2).ToArray();
+        return this with { Joltages = newJoltages };
     }
 
     public long MaxNumberOfPresses(long[] button)
@@ -298,6 +444,17 @@ public record Machine
         }
 
         return -1;
+    }
+
+    public List<bool> GetEvenOdd()
+    {
+        List<bool> evenOdd = [];
+        foreach (var joltage in Joltages)
+        {
+            evenOdd.Add(joltage % 2 == 0);
+        }
+
+        return evenOdd;
     }
 
     public string LightsHash() => string.Join("", Lights.Select(light => light ? "#" : "."));
