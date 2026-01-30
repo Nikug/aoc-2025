@@ -5,11 +5,56 @@ public class Solver
     public long Solve(List<string> input)
     {
         var nodes = Parse(input);
-        var result = FindPaths(nodes["you"]);
+        var result = FindPaths(nodes["you"], nodes["out"]);
         return result;
     }
 
-    public long FindPaths(Node startNode)
+    public long Solve2(List<string> input)
+    {
+        var nodes = Parse(input);
+        var srv2fft = FindPathsWithCache(nodes["svr"], nodes["fft"]);
+        var srv2dac = FindPathsWithCache(nodes["svr"], nodes["dac"]);
+        var fft2dac = FindPathsWithCache(nodes["fft"], nodes["dac"]);
+        var dac2fft = FindPathsWithCache(nodes["dac"], nodes["fft"]);
+        var fft2out = FindPathsWithCache(nodes["fft"], nodes["out"]);
+        var dac2out = FindPathsWithCache(nodes["dac"], nodes["out"]);
+
+        // One of the paths is 0 and could be skipped completely
+        // Since the three has no loops, it is impossible to have fft->dac and dac->fft
+        var path1 = srv2fft * fft2dac * dac2out;
+        var path2 = srv2dac * dac2fft * fft2out;
+        return path1 + path2;
+    }
+
+    public long FindPathsWithCache(Node startNode, Node target)
+    {
+        Dictionary<string, long> cache = [];
+        cache.Add(target.Value, 1);
+
+        var result = WalkPath(startNode, cache);
+        return result;
+    }
+
+    public long WalkPath(Node startNode, Dictionary<string, long> cache)
+    {
+        if (cache.ContainsKey(startNode.Value))
+        {
+            return cache[startNode.Value];
+        }
+
+        long goalRoutes = 0;
+        foreach (var node in startNode.Nodes)
+        {
+            var goals = WalkPath(node, cache);
+            cache[node.Value] = goals;
+            goalRoutes += goals;
+        }
+
+        cache[startNode.Value] = goalRoutes;
+        return goalRoutes;
+    }
+
+    public long FindPaths(Node startNode, Node target)
     {
         long result = 0;
         Queue<Node> queue = [];
@@ -19,7 +64,7 @@ public class Solver
         {
             var node = queue.Dequeue();
 
-            if (node.Value == "out")
+            if (node == target)
             {
                 result += 1;
                 continue;
